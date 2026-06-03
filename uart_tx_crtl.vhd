@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.NUMERIC_STD.all;
 
-entity uart_tx_crtl is
+entity uart_tx_ctrl is
 	generic(
 		CLK_FREQ : integer := 100_000_000; --100MHz
 		BAUD_RATE : integer := 115_200
@@ -20,7 +20,7 @@ entity uart_tx_crtl is
 		
 		tx_irq : out std_logic
 	);
-end uart_tx_crtl;
+end uart_tx_ctrl;
 
 architecture rtl of uart_tx_crtl is
 	constant BAUD_DIVISOR : integer := CLK_FREQ / BAUD_RATE;
@@ -58,7 +58,7 @@ begin
 					when IDLE =>
 						txd_int <= '1';
 						tx_ready_int <= '1';
-						if data_valid <= '1' then
+						if data_valid = '1' then
 							shift_reg <= data_in;
 							tx_state <= START_BIT;
 							tx_ready_int <= '0';
@@ -70,7 +70,7 @@ begin
 						bit_cnt <= 0;
 					
 					when DATA_BITS =>
-						txd_int <= shift_reg(0)
+						txd_int <= shift_reg(0);
 						shift_reg <= '0' & shift_reg(7 downto 1);
 						if bit_cnt = 7 then
 							tx_state <= STOP_BIT;

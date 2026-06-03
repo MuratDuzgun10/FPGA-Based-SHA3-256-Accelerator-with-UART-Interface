@@ -31,7 +31,7 @@ architecture rtl of tx_pct_builder is
 	signal builder_state : builder_state_type := IDLE;
 	
 	signal result_reg : std_logic_vector(511 downto 0) := (others=>'0');
-	signal len_reg : integer rango 0 to 64 := 0;
+	signal len_reg : integer range 0 to 64 := 0;
 	signal byte_cnt : integer range 0 to 64 := 0;
 	signal crc_val : std_logic_vector(15 downto 0) := (others=>'0');
 	
@@ -39,6 +39,7 @@ architecture rtl of tx_pct_builder is
 	signal frame_valid_int : std_logic := '0';
 	signal crc_reset_int : std_logic := '0';
 	signal crc_data_valid_int : std_logic := '0';
+	signal crc_data_out_int : std_logic_vector(7 downto 0) := (others=>'0');
 	
 begin
 	process(clk, rst)
@@ -50,7 +51,7 @@ begin
 			byte_cnt <= 0;
 			frame_valid_int <= '0';
 			crc_reset_int <= '0';
-			crc_data_valid_int <= '0'
+			crc_data_valid_int <= '0';
 			
 		elsif rising_edge(clk) then
 			frame_valid_int <= '0';
@@ -65,23 +66,23 @@ begin
 					end if;
 				
 				when SYNC=>	
-					frame_out_int <= x"AA"
+					frame_out_int <= x"AA";
 					frame_valid_int <= '1';
-					crc_data_out <= x"AA";
+					crc_data_out_int <= x"AA";
 					crc_data_valid_int <= '1';
 					builder_state <= STATUS;
 				
 				when STATUS=>
 					frame_out_int <= x"00";
 					frame_valid_int <= '1';
-					crc_data_out <= x"00";
+					crc_data_out_int <= x"00";
 					crc_data_valid_int <= '1';
 					builder_state <= LENGTH;
 				
 				when LENGTH=>
 					frame_out_int <= std_logic_vector(to_unsigned(len_reg, 8));
 					frame_valid_int <= '1';
-					crc_data_out <= std_logic_vector(to_unsigned(len_reg, 8));
+					crc_data_out_int <= std_logic_vector(to_unsigned(len_reg, 8));
 					crc_data_valid_int <= '1';
 					builder_state <= PAYLOAD;
 					byte_cnt <= 0;
@@ -90,7 +91,7 @@ begin
 					if byte_cnt < len_reg then
 						frame_out_int <= result_reg(byte_cnt*8+7 downto byte_cnt*8);
 						frame_valid_int <= '1';
-						crc_data_out <= result_reg(byte_cnt*8+7 downto byte_cnt*8);
+						crc_data_out_int <= result_reg(byte_cnt*8+7 downto byte_cnt*8);
 						crc_data_valid_int <= '1';
 						byte_cnt <= byte_cnt + 1;
 					else
@@ -121,7 +122,8 @@ begin
 	frame_valid <= frame_valid_int;
 	frame_last <= '1' when builder_state = DONE  else '0';
 	busy <= '1' when builder_state /= IDLE else '0'; --IDLE dışında busy kısmana giriyor
-	crc_rest <= crc_reset_int;
+	crc_reset <= crc_reset_int;
 	crc_data_valid <= crc_data_valid_int;
+	crc_data_out <= crc_data_out_int;
 
 end rtl;

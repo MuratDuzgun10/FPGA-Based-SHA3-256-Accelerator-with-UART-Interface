@@ -19,7 +19,7 @@ entity rx_fifo_bram is
 		rd_en : in std_logic;
 		rd_data : out std_logic_vector(WIDTH-1 downto 0);
 		rd_addr : in std_logic_vector(7 downto 0);
-		fifo_empty : out std_logic
+		fifo_empty : out std_logic;
 		
 		wr_ptr : out std_logic_vector(7 downto 0);
 		rd_ptr : out std_logic_vector(7 downto 0)

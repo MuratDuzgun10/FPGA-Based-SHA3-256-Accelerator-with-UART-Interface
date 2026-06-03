@@ -28,10 +28,10 @@ architecture rtl of uart_rx_phy is
 	signal sample_cnt : integer range 0 to SAMPLE_COUNT - 1 := 0;
 	signal bit_cnt : integer range 0 to 7 := 0;
 	signal shift_reg : std_logic_vector(7 downto 0) := (others=>'0');
-	signal rxd_sync : std_logic_vector(1 downto 0) := "11" --Metasatability safety
+	signal rxd_sync : std_logic_vector(1 downto 0) := "11"; --Metasatability safety
 	
 begin
-	process(clk)
+	process(clk, rst)
 	begin
 		if rst = '1' then
 			rx_state <= IDLE;
@@ -43,7 +43,8 @@ begin
 			data_out <= (others=>'0');
 		
 		elsif rising_edge(clk) then
-			data_valid <= '1';
+			rxd_sync <= rxd_sync(0) & rxd;
+			data_valid <= '0';
 			baud_cnt <= baud_cnt + 1;
 			
 			if baud_cnt = BAUD_DIVISOR -1 then

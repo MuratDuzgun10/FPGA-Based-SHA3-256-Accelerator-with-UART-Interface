@@ -27,10 +27,10 @@ architecture rtl of pct_parser_fsm is
 	type parser_state_type is (IDLE, HEADER, LENGTH, PAYLOAD, CRC_H, CRC_L, DONE);
 	signal parser_state : parser_state_type := IDLE;
 	
-	signal byte_cnt : ineteger range 0 to 256;
+	signal byte_cnt : integer range 0 to 256;
 	signal len_reg : integer range 0 to 256 := 0;
 	signal cmd_reg : std_logic_vector(7 downto 0) := (others=>'0');
-	signal payload_reg : std_logic_vector(2047 downto 0) := others=>'0');
+	signal payload_reg : std_logic_vector(2047 downto 0) := (others=>'0');
 	signal crc_h_reg : std_logic_vector(7 downto 0) := (others=>'0');
 	signal crc_l_reg : std_logic_vector(7 downto 0) := (others=>'0');
 	
@@ -78,7 +78,7 @@ begin
 					
 					when PAYLOAD =>
 						if byte_cnt < 256 then
-							payload_reg(byte_cnt*8+7 downto byte*8) <= byte_in;
+							payload_reg(byte_cnt*8+7 downto byte_cnt*8) <= byte_in;
 							byte_cnt <= byte_cnt + 1;
 							if byte_cnt + 1 >= len_reg then
 								parser_state <= CRC_H;

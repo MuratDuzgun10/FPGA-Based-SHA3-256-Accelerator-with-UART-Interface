@@ -1,6 +1,6 @@
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.NUMERIC_STD.all;
 
 entity uart_crypto_top is
   generic (
@@ -36,7 +36,7 @@ architecture rtl of uart_crypto_top is
   end component;
 
   component pct_parser_fsm is
-    generic (MAX_pct_LEN : integer);
+    generic (MAX_PCT_LEN : integer);
     port (clk, rst : in std_logic;
           byte_in : in std_logic_vector(7 downto 0);
           byte_valid : in std_logic;
@@ -63,11 +63,11 @@ architecture rtl of uart_crypto_top is
     generic (DEPTH : integer; WIDTH : integer);
     port (clk, rst : in std_logic;
           wr_en : in std_logic;
-          wr_data : in std_logic_vector;
+          wr_data : in std_logic_vector(7 downto 0);
           wr_addr : in std_logic_vector(7 downto 0);
           fifo_full : out std_logic;
           rd_en : in std_logic;
-          rd_data : out std_logic_vector;
+          rd_data : out std_logic_vector(7 downto 0);
           rd_addr : in std_logic_vector(7 downto 0);
           fifo_empty : out std_logic;
           wr_ptr : out std_logic_vector(7 downto 0);
@@ -129,31 +129,38 @@ architecture rtl of uart_crypto_top is
   signal pct_cmd : std_logic_vector(7 downto 0);
   signal pct_len : integer;
   signal pct_payload : std_logic_vector(2047 downto 0);
+  signal pct_payload_len : integer;
   signal pct_complete : std_logic;
+  signal pct_error : std_logic;
   signal crc_expected : std_logic_vector(15 downto 0);
 
   signal fifo_full : std_logic;
+  signal fifo_empty : std_logic;
   signal fifo_wr_en : std_logic;
-  signal fifo_wr_data : std_logic_vector(7 downto 0);
+  signal fifo_wr_ptr : std_logic_vector(7 downto 0);
+  signal fifo_rd_ptr : std_logic_vector(7 downto 0);
+  signal fifo_rd_data : std_logic_vector(7 downto 0);
 
   signal crypto_busy : std_logic;
   signal crypto_result : std_logic_vector(511 downto 0);
   signal crypto_result_valid : std_logic;
+  signal crypto_start : std_logic;
 
   signal tx_frame : std_logic_vector(7 downto 0);
   signal tx_frame_valid : std_logic;
+  signal tx_frame_last : std_logic;
   signal tx_ready : std_logic;
   signal tx_done_sig : std_logic;
+  signal tx_builder_busy : std_logic;
 
   signal crc_data_out_sig : std_logic_vector(7 downto 0);
   signal crc_data_valid_sig : std_logic;
   signal crc_reset_sig : std_logic;
   signal crc_result : std_logic_vector(15 downto 0);
   signal crc_ready_sig : std_logic;
-  
-  signal check_en : std_logic;
+
   signal crc_match : std_logic;
-  signal crc_error : std_logic; 
+  signal crc_error : std_logic;
 
 begin
 
@@ -168,36 +175,41 @@ begin
               byte_data => deser_data, byte_valid => deser_valid);
 
   pct_parser_inst : pct_parser_fsm
-    generic map (MAX_pct_LEN => 256)
+    generic map (MAX_PCT_LEN => 256)
     port map (clk => clk, rst => rst,
               byte_in => deser_data, byte_valid => deser_valid,
               pct_cmd => pct_cmd, pct_len => pct_len,
               pct_payload => pct_payload,
+              pct_payload_len => pct_payload_len,
               pct_crc_expected => crc_expected,
-              pct_complete => pct_complete);
-			  
-	crc16_checker_inst: crc16_checker 
+              pct_complete => pct_complete,
+              pct_error => pct_error);
+
+  crc16_checker_inst : crc16_checker
     port map (clk => clk, rst => rst,
-          data_in => deser_data,
-          data_valid => deser_valid,
-          crc_expected => crc_expected,
-          check_en => pct_complete,
-          crc_match => crc_match,
-          crc_error => crc_error);
-  end component;
-	
+              data_in => deser_data,
+              data_valid => deser_valid,
+              crc_expected => crc_expected,
+              check_en => pct_complete,
+              crc_match => crc_match,
+              crc_error => crc_error);
 
   rx_fifo_inst : rx_fifo_bram
     generic map (DEPTH => 256, WIDTH => 8)
     port map (clk => clk, rst => rst,
-              wr_en => fifo_wr_en, wr_data => fifo_wr_data, wr_addr => (others => '0'),
-              fifo_full => fifo_full);
+              wr_en => fifo_wr_en, wr_data => pct_payload(7 downto 0),
+              wr_addr => (others => '0'), fifo_full => fifo_full,
+              rd_en => '0', rd_data => fifo_rd_data,
+              rd_addr => (others => '0'), fifo_empty => fifo_empty,
+              wr_ptr => fifo_wr_ptr, rd_ptr => fifo_rd_ptr);
+
+  crypto_start <= pct_complete and crc_match;
 
   crypto_inst : crypto_core
     generic map (BLOCK_SIZE => 1024)
     port map (clk => clk, rst => rst,
               cmd => pct_cmd, data_in => pct_payload(255 downto 0),
-              data_in_valid => pct_complete,
+              data_in_valid => crypto_start,
               data_len => pct_len,
               result => crypto_result, result_valid => crypto_result_valid,
               busy => crypto_busy);
@@ -216,9 +228,11 @@ begin
               result_len => 32,
               crc_from_gen => crc_result,
               frame_out => tx_frame, frame_valid => tx_frame_valid,
+              frame_last => tx_frame_last,
               crc_data_out => crc_data_out_sig,
               crc_data_valid => crc_data_valid_sig,
-              crc_reset => crc_reset_sig);
+              crc_reset => crc_reset_sig,
+              busy => tx_builder_busy);
 
   uart_tx_inst : uart_tx_ctrl
     generic map (CLK_FREQ => CLK_FREQ, BAUD_RATE => BAUD_RATE)
@@ -228,9 +242,7 @@ begin
               tx_irq => tx_done_irq);
 
   fifo_wr_en <= pct_complete and not fifo_full;
-  fifo_wr_data <= pct_payload(7 downto 0);
   crypto_done_irq <= crypto_result_valid;
-
   status_led <= crypto_busy & pct_complete & fifo_full & tx_ready;
 
 end architecture rtl;

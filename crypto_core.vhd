@@ -31,7 +31,7 @@ architecture rtl of crypto_core is
 	signal keccak_state : state_array := (others=>(others=>'0'));
 	signal keccak_state_next : state_array;
 	
-	signal round_cnt : integer rango 0 to 24 := 0;
+	signal round_cnt : integer range 0 to 24 := 0;
 	signal data_reg : std_logic_vector(255 downto 0) := (others=>'0');
 	signal hash_reg : std_logic_vector(255 downto 0) := (others=>'0');
 	signal result_reg : std_logic_vector(511 downto 0) := (others=>'0');
@@ -45,7 +45,7 @@ begin
 		variable temp : std_logic_vector(31 downto 0);
 		variable i : integer;
 	begin
-		for i in 0 t0 7 loop
+		for i in 0 to 7 loop
 			temp := keccak_state(i);
 			
 			keccak_state_next(i) <= keccak_state((i + 1) mod 8) xor (keccak_state(i)(30 downto 0) & keccak_state(i)(31)) xor keccak_state((i + 7) mod 8);

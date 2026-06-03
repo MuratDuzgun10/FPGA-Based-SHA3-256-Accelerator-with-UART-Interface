@@ -10,15 +10,15 @@ entity crc16_gen is
 		data_in : in std_logic_vector(7 downto 0);
 		data_valid : in std_logic;
 		
-		crc_rest : in std_logic;
+		crc_reset : in std_logic;
 		
 		crc_out : out std_logic_vector(15 downto 0);
 		crc_ready : out std_logic
 	);
 end crc16_gen;
 
-architecture rlt of crc16_gen is
-	signal crc_reg : std_logic_vector(15 downto 0) => (others=>'0');
+architecture rtl of crc16_gen is
+	signal crc_reg : std_logic_vector(15 downto 0) := (others=>'0');
 	signal crc_next : std_logic_vector(15 downto 0);
 	signal crc_ready_int : std_logic;
 	
@@ -47,7 +47,7 @@ begin
 			crc_ready_int <= '0';
 		
 		elsif rising_edge(clk) then
-			if crc_rest = '1' then
+			if crc_reset = '1' then
 				crc_reg <= (others=>'0');
 				crc_ready_int <= '0';
 			elsif data_valid = '1' then
